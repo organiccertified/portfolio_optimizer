@@ -12,7 +12,17 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__, static_folder='../build', static_url_path='')
+# Set static folder path - handle both relative and absolute paths
+static_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'build')
+if not os.path.exists(static_folder_path):
+    # Fallback: try absolute path from project root
+    static_folder_path = os.path.join(os.path.expanduser('~'), 'portfolio_optimizer', 'build')
+    if not os.path.exists(static_folder_path):
+        logger.warning(f"Build folder not found at {static_folder_path}. Frontend may not work.")
+        # Use a dummy path to avoid Flask errors
+        static_folder_path = os.path.dirname(os.path.dirname(__file__))
+
+app = Flask(__name__, static_folder=static_folder_path, static_url_path='')
 CORS(app)
 
 # Production configuration
@@ -268,22 +278,26 @@ def health_check():
 @app.route('/api/stocks', methods=['GET'])
 def get_stocks():
     """Get enhanced stock list with filtering options"""
-    sector = request.args.get('sector')
-    limit = request.args.get('limit', type=int)
-    
-    stocks = optimizer.stocks
-    
-    if sector:
-        stocks = [s for s in stocks if s['sector'].lower() == sector.lower()]
-    
-    if limit:
-        stocks = stocks[:limit]
-    
-    return jsonify({
-        'stocks': stocks,
-        'total': len(stocks),
-        'sectors': list(set(s['sector'] for s in optimizer.stocks))
-    })
+    try:
+        sector = request.args.get('sector')
+        limit = request.args.get('limit', type=int)
+        
+        stocks = optimizer.stocks
+        
+        if sector:
+            stocks = [s for s in stocks if s['sector'].lower() == sector.lower()]
+        
+        if limit:
+            stocks = stocks[:limit]
+        
+        return jsonify({
+            'stocks': stocks,
+            'total': len(stocks),
+            'sectors': list(set(s['sector'] for s in optimizer.stocks))
+        })
+    except Exception as e:
+        logger.error(f"Error in get_stocks: {str(e)}")
+        return jsonify({'error': 'Internal server error', 'message': str(e)}), 500
 
 @app.route('/api/optimize', methods=['POST'])
 def optimize_portfolio():
@@ -324,24 +338,36 @@ def clear_cache():
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
     """Get API statistics"""
-    return jsonify({
-        'cache_size': len(optimization_cache),
-        'total_stocks': len(optimizer.stocks),
-        'uptime': time.time(),
-        'version': '2.0'
-    })
+    try:
+        return jsonify({
+            'cache_size': len(optimization_cache),
+            'total_stocks': len(optimizer.stocks),
+            'uptime': time.time(),
+            'version': '2.0'
+        })
+    except Exception as e:
+        logger.error(f"Error in get_stats: {str(e)}")
+        return jsonify({'error': 'Internal server error', 'message': str(e)}), 500
 
 # Serve React app - MUST be after API routes
 @app.route('/')
 def serve():
-    return send_from_directory(app.static_folder, 'index.html')
+    try:
+        return send_from_directory(app.static_folder, 'index.html')
+    except Exception as e:
+        logger.error(f"Error serving index.html: {str(e)}")
+        return jsonify({'error': 'Frontend not found. Please build the React app.'}), 404
 
 @app.route('/<path:path>')
 def serve_static(path):
     # Don't serve API routes as static files
     if path.startswith('api/'):
         return jsonify({'error': 'Not found'}), 404
-    return send_from_directory(app.static_folder, path)
+    try:
+        return send_from_directory(app.static_folder, path)
+    except Exception as e:
+        logger.error(f"Error serving static file {path}: {str(e)}")
+        return jsonify({'error': 'File not found'}), 404
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
