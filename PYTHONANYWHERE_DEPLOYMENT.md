@@ -25,11 +25,59 @@ This guide will walk you through deploying your Portfolio Optimizer application 
 ### Step 2: Upload Files to PythonAnywhere
 
 #### Option A: Using Git (Recommended)
+
+**Option A1: Using SSH (if you have SSH keys set up)**
 1. In PythonAnywhere, open a Bash console
 2. Clone your repository:
    ```bash
    cd ~
+   git clone git@github.com:organiccertified/portfolio_optimizer.git
+   cd portfolio_optimizer
+   ```
+
+**Option A2: Using HTTPS with Personal Access Token (Easier)**
+1. Create a GitHub Personal Access Token:
+   - Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - Click "Generate new token (classic)"
+   - Give it a name (e.g., "PythonAnywhere")
+   - Select scopes: `repo` (full control of private repositories)
+   - Click "Generate token"
+   - **Copy the token immediately** (you won't see it again!)
+
+2. In PythonAnywhere, open a Bash console
+3. Clone your repository (use the token as password when prompted):
+   ```bash
+   cd ~
    git clone https://github.com/organiccertified/portfolio_optimizer.git
+   cd portfolio_optimizer
+   ```
+   When prompted for username: enter your GitHub username
+   When prompted for password: paste your Personal Access Token
+
+**Option A3: Set up SSH keys on PythonAnywhere**
+If you prefer SSH, set up keys first:
+1. In PythonAnywhere Bash console, generate SSH key:
+   ```bash
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   # Press Enter to accept default location
+   # Optionally set a passphrase (or press Enter for no passphrase)
+   ```
+2. Display your public key:
+   ```bash
+   cat ~/.ssh/id_ed25519.pub
+   ```
+3. Copy the output and add it to GitHub:
+   - Go to GitHub → Settings → SSH and GPG keys
+   - Click "New SSH key"
+   - Paste your key and save
+4. Test the connection:
+   ```bash
+   ssh -T git@github.com
+   ```
+5. Now you can clone using SSH:
+   ```bash
+   cd ~
+   git clone git@github.com:organiccertified/portfolio_optimizer.git
    cd portfolio_optimizer
    ```
 
@@ -47,15 +95,22 @@ This guide will walk you through deploying your Portfolio Optimizer application 
    ```bash
    cd ~/portfolioOptimizer  # or your project path
    ```
-3. Create a virtual environment (recommended):
+3. **Choose one installation method:**
+
+   **Option A: With Virtual Environment (Recommended)**
    ```bash
    python3.10 -m venv venv
    source venv/bin/activate
+   cd backend
+   pip install -r production_requirements.txt
+   # Note: NO --user flag when using virtualenv!
    ```
-4. Install dependencies:
+
+   **Option B: Without Virtual Environment (User Install)**
    ```bash
    cd backend
    pip install --user -r production_requirements.txt
+   # Note: Use --user flag when NOT using virtualenv
    ```
 
 ### Step 4: Configure the Web App
@@ -164,17 +219,73 @@ Static files are served from:
 - Check that you're using the correct Python version
 - Verify the virtual environment is activated (if using one)
 
+### Issue: "Can not perform a '--user' install. User site-packages are not visible in this virtualenv."
+**Solution:**
+This error occurs when you use `--user` flag inside a virtual environment. You have two options:
+
+**Option 1: Remove --user flag (if using virtualenv)**
+```bash
+# Make sure virtualenv is activated
+source venv/bin/activate
+# Then install without --user
+pip install -r production_requirements.txt
+```
+
+**Option 2: Don't use virtualenv (use --user)**
+```bash
+# Deactivate virtualenv first
+deactivate
+# Then install with --user
+pip install --user -r production_requirements.txt
+```
+
+**Remember:** 
+- ✅ Use `--user` when NOT in a virtualenv
+- ❌ Don't use `--user` when IN a virtualenv
+
 ### Issue: "404 Not Found" for static files
 **Solution:**
 - Check static file mappings in Web tab
 - Verify the build folder path is correct
 - Ensure files were uploaded correctly
 
-### Issue: "API calls failing"
+### Issue: "API calls failing" or "404 NOT FOUND" for API endpoints
 **Solution:**
-- Check that API routes are prefixed with `/api/`
-- Verify CORS is enabled in `production_app.py`
-- Check PythonAnywhere error logs
+1. **Check if changes are deployed:**
+   ```bash
+   cd ~/portfolio_optimizer
+   git pull  # Make sure you have the latest code
+   ```
+
+2. **Verify the WSGI file is using production_app.py:**
+   - In PythonAnywhere Web tab, check WSGI configuration file
+   - Should have: `from backend.production_app import app as application`
+   - NOT: `from backend.optimized_app import app`
+
+3. **Check PythonAnywhere error logs:**
+   - Go to **Web** tab → **Error log**
+   - Look for import errors or route errors
+
+4. **Verify route ordering in production_app.py:**
+   - API routes (`/api/*`) must be defined BEFORE the catch-all route (`/<path:path>`)
+   - Check lines 256-333 should have API routes
+   - Lines 334-344 should have static file serving
+
+5. **Reload the web app:**
+   - Go to **Web** tab
+   - Click the green **Reload** button
+   - Wait a few seconds for it to restart
+
+6. **Test the API directly:**
+   - Visit: `https://mojon.pythonanywhere.com/api/health`
+   - Should return JSON, not 404
+
+7. **Check CORS is enabled:**
+   - In `production_app.py`, line 16 should have: `CORS(app)`
+
+8. **Verify static folder path:**
+   - In `production_app.py`, line 15: `static_folder='../build'`
+   - Make sure `build` folder exists in project root
 
 ### Issue: "App not loading"
 **Solution:**
@@ -182,6 +293,33 @@ Static files are served from:
 2. Verify WSGI file path is correct
 3. Check that `production_app.py` exists and is accessible
 4. Reload the web app
+
+### Issue: "Permission denied (publickey)" when cloning with SSH
+**Solution:**
+This means SSH keys aren't set up on PythonAnywhere. You have two options:
+
+**Option 1: Use HTTPS instead (Easier)**
+```bash
+git clone https://github.com/organiccertified/portfolio_optimizer.git
+# Use your GitHub username and Personal Access Token when prompted
+```
+
+**Option 2: Set up SSH keys**
+1. Generate SSH key on PythonAnywhere:
+   ```bash
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   # Press Enter for default location, optionally set passphrase
+   ```
+2. Display and copy your public key:
+   ```bash
+   cat ~/.ssh/id_ed25519.pub
+   ```
+3. Add to GitHub:
+   - Go to GitHub → Settings → SSH and GPG keys
+   - Click "New SSH key"
+   - Paste the key and save
+4. Test: `ssh -T git@github.com`
+5. Now clone with SSH: `git clone git@github.com:organiccertified/portfolio_optimizer.git`
 
 ## 📝 Important Notes
 

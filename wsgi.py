@@ -6,7 +6,7 @@ import os
 
 # Add your project directory to the Python path
 # IMPORTANT: Update 'yourusername' to your actual PythonAnywhere username
-# Repository: https://github.com/organiccertified/portfolio_optimizer
+# Repository: git@github.com:organiccertified/portfolio_optimizer.git
 project_home = '/home/yourusername/portfolio_optimizer'
 
 if project_home not in sys.path:
