@@ -15,24 +15,51 @@ npm run build
 ### 2. Upload to PythonAnywhere
 
 **Option A: Git (Recommended)**
+
+**Using HTTPS (Easier - Recommended):**
 ```bash
 # In PythonAnywhere Bash console
 cd ~
 git clone https://github.com/organiccertified/portfolio_optimizer.git
 cd portfolio_optimizer
+# When prompted, use your GitHub username and Personal Access Token as password
 ```
+
+**Using SSH (if keys are set up):**
+```bash
+# In PythonAnywhere Bash console
+cd ~
+git clone git@github.com:organiccertified/portfolio_optimizer.git
+cd portfolio_optimizer
+```
+
+**To set up SSH keys on PythonAnywhere:**
+1. Generate key: `ssh-keygen -t ed25519 -C "your_email@example.com"`
+2. Display key: `cat ~/.ssh/id_ed25519.pub`
+3. Add to GitHub: Settings → SSH and GPG keys → New SSH key
+4. Test: `ssh -T git@github.com`
 
 **Option B: File Upload**
 - Upload via Files tab in PythonAnywhere dashboard
 - Upload: `backend/`, `build/`, `wsgi.py`
 
 ### 3. Install Dependencies
+
+**Option A: With Virtual Environment (Recommended)**
 ```bash
-cd ~/portfolioOptimizer
-python3.10 -m venv venv  # Optional but recommended
-source venv/bin/activate  # If using venv
+cd ~/portfolio_optimizer
+python3.10 -m venv venv
+source venv/bin/activate
 cd backend
+pip install -r production_requirements.txt
+# Note: NO --user flag when using virtualenv!
+```
+
+**Option B: Without Virtual Environment**
+```bash
+cd ~/portfolio_optimizer/backend
 pip install --user -r production_requirements.txt
+# Note: Use --user flag when NOT using virtualenv
 ```
 
 ### 4. Configure Web App
@@ -80,7 +107,8 @@ In Web tab → Static files:
 - Verify build folder path
 
 **Module not found:**
-- Install dependencies: `pip install --user -r backend/production_requirements.txt`
+- If using virtualenv: `pip install -r backend/production_requirements.txt` (no --user)
+- If NOT using virtualenv: `pip install --user -r backend/production_requirements.txt`
 - Check Python version matches
 
 **App not loading:**
