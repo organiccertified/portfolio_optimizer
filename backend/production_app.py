@@ -253,16 +253,7 @@ class PortfolioOptimizer:
 # Initialize optimizer
 optimizer = PortfolioOptimizer()
 
-# Serve React app
-@app.route('/')
-def serve():
-    return send_from_directory(app.static_folder, 'index.html')
-
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
-
-# API Routes
+# API Routes - MUST be defined BEFORE catch-all static route
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Enhanced health check endpoint"""
@@ -339,6 +330,18 @@ def get_stats():
         'uptime': time.time(),
         'version': '2.0'
     })
+
+# Serve React app - MUST be after API routes
+@app.route('/')
+def serve():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    # Don't serve API routes as static files
+    if path.startswith('api/'):
+        return jsonify({'error': 'Not found'}), 404
+    return send_from_directory(app.static_folder, path)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
