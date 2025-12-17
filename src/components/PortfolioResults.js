@@ -12,6 +12,7 @@ function PortfolioResults({ data }) {
           <h4>Portfolio Weights & Returns</h4>
           <div className="weights-list">
             {data.weights && Object.entries(data.weights)
+              .filter(([, weight]) => weight > 0.001) // Only show stocks with weight > 0%
               .sort(([,a], [,b]) => b - a) // Sort by weight descending
               .map(([stock, weight]) => {
                 const stockInfo = data.stocks?.find(s => s.symbol === stock);
