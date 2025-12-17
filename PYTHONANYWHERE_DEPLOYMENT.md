@@ -213,11 +213,47 @@ Static files are served from:
 
 ## 🐛 Troubleshooting
 
-### Issue: "Module not found"
+### Issue: "Module not found" or "ModuleNotFoundError"
 **Solution:**
-- Make sure all dependencies are installed
-- Check that you're using the correct Python version
-- Verify the virtual environment is activated (if using one)
+1. **Check which Python version your web app uses:**
+   - Go to **Web** tab → Your web app
+   - Look at the Python version (e.g., Python 3.10)
+   - Make sure you install packages for the SAME version
+
+2. **Install for the correct Python version:**
+   ```bash
+   # Check your Python version
+   python3.10 --version  # or python3.9, python3.11, etc.
+   
+   # Install using the SAME version as your web app
+   python3.10 -m pip install --user flask-cors
+   # OR if your web app uses 3.9:
+   python3.9 -m pip install --user flask-cors
+   ```
+
+3. **Install all requirements:**
+   ```bash
+   cd ~/portfolio_optimizer/backend
+   python3.10 -m pip install --user -r production_requirements.txt
+   ```
+
+4. **Verify installation:**
+   ```bash
+   python3.10 -m pip list | grep flask-cors
+   ```
+   Should show `flask-cors` in the list
+
+5. **If using virtualenv:**
+   ```bash
+   cd ~/portfolio_optimizer
+   source venv/bin/activate
+   pip install flask-cors
+   # Make sure your WSGI file activates the venv!
+   ```
+
+6. **Check PythonAnywhere's help page:**
+   - Visit: https://help.pythonanywhere.com/pages/DebuggingImportError/
+   - This has specific instructions for PythonAnywhere
 
 ### Issue: "Can not perform a '--user' install. User site-packages are not visible in this virtualenv."
 **Solution:**
@@ -248,6 +284,43 @@ pip install --user -r production_requirements.txt
 - Check static file mappings in Web tab
 - Verify the build folder path is correct
 - Ensure files were uploaded correctly
+
+### Issue: "500 Internal Server Error" for API endpoints
+**Solution:**
+1. **Check PythonAnywhere error logs:**
+   - Go to **Web** tab → **Error log**
+   - Look for the actual error message (this will tell you what's wrong)
+   - Common errors:
+     - `ModuleNotFoundError`: Missing dependencies
+     - `FileNotFoundError`: Missing build folder
+     - `ImportError`: Wrong import path
+
+2. **Verify dependencies are installed:**
+   ```bash
+   cd ~/portfolio_optimizer/backend
+   pip list | grep flask
+   pip list | grep flask-cors
+   ```
+   If missing, install: `pip install -r production_requirements.txt`
+
+3. **Check if build folder exists:**
+   ```bash
+   cd ~/portfolio_optimizer
+   ls -la build/
+   ```
+   If missing, you need to build the React app locally and upload it
+
+4. **Check static folder path:**
+   - In `production_app.py`, line 15: `static_folder='../build'`
+   - This should point to: `/home/yourusername/portfolio_optimizer/build`
+   - Verify the path is correct relative to where the app runs
+
+5. **Test the app directly:**
+   ```bash
+   cd ~/portfolio_optimizer
+   python3 backend/production_app.py
+   ```
+   This will show you the actual error
 
 ### Issue: "API calls failing" or "404 NOT FOUND" for API endpoints
 **Solution:**

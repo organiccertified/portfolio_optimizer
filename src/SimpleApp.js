@@ -109,7 +109,9 @@ function SimpleApp() {
 
             <h3>Stock Weights:</h3>
             <div className="weights">
-              {Object.entries(portfolioData.weights).map(([symbol, weight]) => (
+              {Object.entries(portfolioData.weights)
+                .filter(([, weight]) => weight > 0.001) // Only show stocks with weight > 0%
+                .map(([symbol, weight]) => (
                 <div key={symbol} className="weight-item">
                   <span className="symbol">{symbol}</span>
                   <span className="weight">{(weight * 100).toFixed(1)}%</span>

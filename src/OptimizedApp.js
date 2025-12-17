@@ -18,8 +18,11 @@ function OptimizedApp() {
   // Memoized validation
   const validation = useMemo(() => {
     const errors = [];
-    if (numStocks < 1 || numStocks > 50) {
-      errors.push('Number of stocks must be between 1 and 50');
+    // For target_return strategy, numStocks validation is not required
+    if (strategy !== 'target_return') {
+      if (numStocks < 1 || numStocks > 50) {
+        errors.push('Number of stocks must be between 1 and 50');
+      }
     }
     if (targetBeta < 0.1 || targetBeta > 3.0) {
       errors.push('Target beta must be between 0.1 and 3.0');
@@ -27,11 +30,15 @@ function OptimizedApp() {
     if (targetReturn && (isNaN(parseFloat(targetReturn)) || parseFloat(targetReturn) < 1 || parseFloat(targetReturn) > 50)) {
       errors.push('Target return must be between 1% and 50%');
     }
+    // Target return is required for target_return strategy
+    if (strategy === 'target_return' && !targetReturn) {
+      errors.push('Target Return strategy requires a target return to be specified');
+    }
     return {
       isValid: errors.length === 0,
       errors
     };
-  }, [numStocks, targetBeta, targetReturn]);
+  }, [numStocks, targetBeta, targetReturn, strategy]);
 
   // Load initial data
   useEffect(() => {
@@ -140,7 +147,7 @@ function OptimizedApp() {
     <div className="App">
       <div className="container">
         <header className="app-header">
-          <h1>🚀 Optimized Portfolio Optimizer</h1>
+          <h1>Portfolio Optimizer</h1>
           <p>Advanced portfolio optimization with intelligent stock selection</p>
           {stats && (
             <div className="stats-bar">
@@ -162,9 +169,15 @@ function OptimizedApp() {
                 onChange={(e) => setNumStocks(parseInt(e.target.value) || 0)}
                 min="1"
                 max="50"
+                disabled={strategy === 'target_return'}
                 className={validation.isValid ? '' : 'error'}
+                style={strategy === 'target_return' ? {opacity: 0.6, cursor: 'not-allowed'} : {}}
               />
-              <small>Choose 1-50 stocks for your portfolio</small>
+              <small>
+                {strategy === 'target_return' 
+                  ? 'Ignored for Target Return strategy'
+                  : 'Choose 1-50 stocks for your portfolio'}
+              </small>
             </div>
 
             <div className="input-group">
@@ -208,8 +221,13 @@ function OptimizedApp() {
                 <option value="diversified">Diversified (Recommended)</option>
                 <option value="random">Random Selection</option>
                 <option value="top">Top Stocks</option>
+                <option value="target_return">Target Return (Ignores stock count)</option>
               </select>
-              <small>How to select stocks for optimization</small>
+              <small>
+                {strategy === 'target_return' 
+                  ? 'Finds optimal mix to achieve target return (ignores number of stocks)'
+                  : 'How to select stocks for optimization'}
+              </small>
             </div>
           </div>
 
@@ -257,8 +275,11 @@ function OptimizedApp() {
 
             <div className="metrics-grid">
               <div className="metric-card">
-                <div className="metric-label">Expected Return</div>
+                <div className="metric-label">Expected Return (Annual)</div>
                 <div className="metric-value">{(portfolioData.expected_return * 100).toFixed(2)}%</div>
+                <div style={{fontSize: '0.75rem', color: '#666', marginTop: '4px'}}>
+                  Per year
+                </div>
               </div>
               <div className="metric-card">
                 <div className="metric-label">Volatility</div>
@@ -281,16 +302,29 @@ function OptimizedApp() {
               
               {portfolioData.target_return && (
                 <div className="metric-card">
-                  <div className="metric-label">Target Return</div>
+                  <div className="metric-label">Target Return (Annual)</div>
                   <div className="metric-value">{(portfolioData.target_return * 100).toFixed(1)}%</div>
                   <div className="return-comparison">
-                    Achieved: {(portfolioData.expected_return * 100).toFixed(1)}%
+                    Achieved: {(portfolioData.expected_return * 100).toFixed(1)}% per year
                     <span className={portfolioData.target_achieved ? 'success' : 'warning'}>
                       ({portfolioData.target_achieved ? '✓' : '⚠'})
                     </span>
                   </div>
                 </div>
               )}
+            </div>
+
+            <div style={{
+              background: '#f8f9fa',
+              padding: '12px',
+              borderRadius: '8px',
+              marginTop: '16px',
+              fontSize: '0.875rem',
+              color: '#555'
+            }}>
+              <strong>📅 Time Period:</strong> The expected return is <strong>annual</strong> (per year). 
+              This means if you invest $10,000, you would expect approximately ${(10000 * portfolioData.expected_return).toFixed(0)} in returns over one year, 
+              before taxes and fees. Actual returns may vary due to market volatility.
             </div>
 
             {portfolioSummary && (
@@ -319,6 +353,7 @@ function OptimizedApp() {
               <h3>💼 Stock Weights & Returns</h3>
               <div className="weights-grid">
                 {Object.entries(portfolioData.weights)
+                  .filter(([, weight]) => weight > 0.001) // Only show stocks with weight > 0%
                   .sort(([,a], [,b]) => b - a)
                   .map(([symbol, weight]) => {
                     const stock = portfolioData.stocks.find(s => s.symbol === symbol);

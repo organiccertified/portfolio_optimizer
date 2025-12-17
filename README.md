@@ -33,7 +33,27 @@ A React-based web application that helps users optimize their stock portfolio by
 - Python 3.8 or higher
 - pip (Python package manager)
 
-### Setup Instructions
+### Quick Start (Recommended)
+
+**Windows:**
+```bash
+# Double-click or run:
+start_optimized.bat
+```
+
+**Mac/Linux:**
+```bash
+chmod +x start_optimized.sh
+./start_optimized.sh
+```
+
+This will automatically:
+1. Install Python dependencies
+2. Start the backend server on http://localhost:5000
+3. Start the frontend server on http://localhost:3000
+4. Open the app in your browser
+
+### Manual Setup Instructions
 
 1. **Clone the repository**
    ```bash
@@ -49,27 +69,30 @@ A React-based web application that helps users optimize their stock portfolio by
 3. **Install Backend Dependencies**
    ```bash
    cd backend
-   pip install -r requirements.txt
+   pip install -r optimized_requirements.txt
    cd ..
    ```
 
-4. **Start the Backend Server**
+4. **Start the Backend Server** (Terminal 1)
    ```bash
    cd backend
-   python app.py
+   python optimized_app.py
    ```
    The backend will start on http://localhost:5000
+   You should see: `Running on http://0.0.0.0:5000`
 
-5. **Start the Frontend Development Server**
+5. **Start the Frontend Development Server** (Terminal 2)
    ```bash
    npm start
    ```
    The frontend will start on http://localhost:3000
+   Your browser should automatically open to http://localhost:3000
 
-6. **Alternative: Run Both Simultaneously**
+6. **Alternative: Run Both Simultaneously** (Single Terminal)
    ```bash
    npm run dev
    ```
+   Note: This uses the old `backend/app.py`. For the optimized version, use the manual setup above.
 
 ## Usage
 
