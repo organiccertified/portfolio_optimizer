@@ -87,10 +87,10 @@ function OptimizedApp() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          num_stocks: parseInt(numStocks),
-          target_beta: parseFloat(targetBeta),
-          target_return: targetReturn ? parseFloat(targetReturn) : null,
-          strategy: strategy
+          num_stocks: parseInt(numStocks) || 10,
+          target_beta: parseFloat(targetBeta) || 1.0,
+          target_return: targetReturn && targetReturn.trim() ? parseFloat(targetReturn) : null,
+          strategy: strategy || 'diversified'
         }),
       });
 
@@ -99,8 +99,16 @@ function OptimizedApp() {
         setPortfolioData(data);
         loadStats(); // Refresh stats
       } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to optimize portfolio');
+        let errorMessage = 'Failed to optimize portfolio';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.message || errorMessage;
+          console.error('Optimization error:', errorData);
+        } catch (e) {
+          console.error('Failed to parse error response:', e);
+          errorMessage = `Server error (${response.status}). Check backend logs.`;
+        }
+        setError(errorMessage);
       }
     } catch (err) {
       setError('Cannot connect to backend. Please check your connection.');
@@ -159,85 +167,114 @@ function OptimizedApp() {
         </header>
         
         <div className="input-section">
-          <div className="input-grid">
-            <div className="input-group">
-              <label htmlFor="numStocks">Number of Stocks</label>
-              <input
-                id="numStocks"
-                type="number"
-                value={numStocks}
-                onChange={(e) => setNumStocks(parseInt(e.target.value) || 0)}
-                min="1"
-                max="50"
-                disabled={strategy === 'target_return'}
-                className={validation.isValid ? '' : 'error'}
-                style={strategy === 'target_return' ? {opacity: 0.6, cursor: 'not-allowed'} : {}}
-              />
-              <small>
-                {strategy === 'target_return' 
-                  ? 'Ignored for Target Return strategy'
-                  : 'Choose 1-50 stocks for your portfolio'}
-              </small>
+          <div className="settings-card">
+            <h3>⚙️ Optimization Settings</h3>
+            <div className="input-grid">
+              <div className="input-group">
+                <label htmlFor="strategy">Selection Strategy</label>
+                <select
+                  id="strategy"
+                  value={strategy}
+                  onChange={(e) => setStrategy(e.target.value)}
+                >
+                  <option value="diversified">Diversified (Recommended)</option>
+                  <option value="random">Random Selection</option>
+                  <option value="top">Top Stocks</option>
+                  <option value="target_return">Target Return (Ignores stock count)</option>
+                </select>
+                <small>
+                  {strategy === 'target_return' 
+                    ? 'Finds optimal mix to achieve target return (ignores number of stocks)'
+                    : 'How to select stocks for optimization'}
+                </small>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="targetReturn">Target Return (%)</label>
+                <div className="target-return-wrapper">
+                  <input
+                    id="targetReturn"
+                    type="number"
+                    step="0.1"
+                    value={targetReturn}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '' || (parseFloat(val) >= 1 && parseFloat(val) <= 50)) {
+                        setTargetReturn(val);
+                      }
+                    }}
+                    min="1"
+                    max="50"
+                    placeholder="e.g., 12"
+                    className={validation.isValid ? '' : 'error'}
+                  />
+                  <span className="target-return-suffix">%</span>
+                </div>
+                <small>Expected annual return: 1% to 50% (optional)</small>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="targetBeta">Target Beta</label>
+                <div className="beta-input-wrapper">
+                  <div className="beta-slider-container">
+                    <input
+                      type="range"
+                      id="targetBetaSlider"
+                      min="0.1"
+                      max="3.0"
+                      step="0.1"
+                      value={targetBeta}
+                      onChange={(e) => setTargetBeta(parseFloat(e.target.value))}
+                      className="beta-slider"
+                    />
+                    <input
+                      id="targetBeta"
+                      type="number"
+                      step="0.1"
+                      value={targetBeta}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        if (val >= 0.1 && val <= 3.0) {
+                          setTargetBeta(val);
+                        }
+                      }}
+                      min="0.1"
+                      max="3.0"
+                      className={`beta-number-input ${validation.isValid ? '' : 'error'}`}
+                    />
+                  </div>
+                </div>
+                <small>Risk level: 0.1 (conservative) to 3.0 (aggressive)</small>
+              </div>
+
+              <div className="input-group">
+                <label htmlFor="numStocks">Number of Stocks</label>
+                <input
+                  id="numStocks"
+                  type="number"
+                  value={numStocks}
+                  onChange={(e) => setNumStocks(parseInt(e.target.value) || 0)}
+                  min="1"
+                  max="50"
+                  disabled={strategy === 'target_return'}
+                  className={validation.isValid ? '' : 'error'}
+                />
+                <small>
+                  {strategy === 'target_return' 
+                    ? 'Ignored for Target Return strategy'
+                    : 'Choose 1-50 stocks for your portfolio'}
+                </small>
+              </div>
             </div>
 
-            <div className="input-group">
-              <label htmlFor="targetBeta">Target Beta</label>
-              <input
-                id="targetBeta"
-                type="number"
-                step="0.1"
-                value={targetBeta}
-                onChange={(e) => setTargetBeta(parseFloat(e.target.value) || 0)}
-                min="0.1"
-                max="3.0"
-                className={validation.isValid ? '' : 'error'}
-              />
-              <small>Risk level: 0.1 (conservative) to 3.0 (aggressive)</small>
-            </div>
-
-            <div className="input-group">
-              <label htmlFor="targetReturn">Target Return (Optional)</label>
-              <input
-                id="targetReturn"
-                type="number"
-                step="0.1"
-                value={targetReturn}
-                onChange={(e) => setTargetReturn(e.target.value)}
-                min="1"
-                max="50"
-                placeholder="e.g., 12"
-                className={validation.isValid ? '' : 'error'}
-              />
-              <small>Expected annual return: 1% to 50% (leave empty for auto-optimization)</small>
-            </div>
-
-            <div className="input-group">
-              <label htmlFor="strategy">Selection Strategy</label>
-              <select
-                id="strategy"
-                value={strategy}
-                onChange={(e) => setStrategy(e.target.value)}
-              >
-                <option value="diversified">Diversified (Recommended)</option>
-                <option value="random">Random Selection</option>
-                <option value="top">Top Stocks</option>
-                <option value="target_return">Target Return (Ignores stock count)</option>
-              </select>
-              <small>
-                {strategy === 'target_return' 
-                  ? 'Finds optimal mix to achieve target return (ignores number of stocks)'
-                  : 'How to select stocks for optimization'}
-              </small>
-            </div>
+            {!validation.isValid && (
+              <div className="validation-errors">
+                {validation.errors.map((error, index) => (
+                  <div key={index} className="error-message">⚠️ {error}</div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {!validation.isValid && (
-            <div className="validation-errors">
-              {validation.errors.map((error, index) => (
-                <div key={index} className="error-message">⚠️ {error}</div>
-              ))}
-            </div>
-          )}
 
           <div className="action-buttons">
             <button 
@@ -245,13 +282,48 @@ function OptimizedApp() {
               disabled={loading || !validation.isValid}
               className="optimize-btn"
             >
-              {loading ? '🔄 Optimizing...' : '⚡ Optimize Portfolio'}
+              {loading ? (
+                <>
+                  <span className="spinner"></span>
+                  Optimizing...
+                </>
+              ) : (
+                '⚡ Optimize Portfolio'
+              )}
             </button>
             <button 
               onClick={resetForm}
               className="reset-btn"
+              disabled={loading}
             >
               🔄 Reset
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Sticky Action Bar */}
+        <div className="mobile-action-bar">
+          <div className="action-buttons">
+            <button 
+              onClick={optimizePortfolio} 
+              disabled={loading || !validation.isValid}
+              className="optimize-btn"
+            >
+              {loading ? (
+                <>
+                  <span className="spinner"></span>
+                  Optimizing...
+                </>
+              ) : (
+                '⚡ Optimize'
+              )}
+            </button>
+            <button 
+              onClick={resetForm}
+              className="reset-btn"
+              disabled={loading}
+            >
+              Reset
             </button>
           </div>
         </div>
@@ -275,40 +347,64 @@ function OptimizedApp() {
 
             <div className="metrics-grid">
               <div className="metric-card">
-                <div className="metric-label">Expected Return (Annual)</div>
+                <div className="metric-icon">📈</div>
+                <div className="metric-label">Portfolio Expected Return (Annual)</div>
                 <div className="metric-value">{(portfolioData.expected_return * 100).toFixed(2)}%</div>
-                <div style={{fontSize: '0.75rem', color: '#666', marginTop: '4px'}}>
-                  Per year
-                </div>
+                <div className="metric-subtitle">Computed from optimized weights</div>
               </div>
               <div className="metric-card">
+                <div className="metric-icon">📊</div>
                 <div className="metric-label">Volatility</div>
                 <div className="metric-value">{(portfolioData.volatility * 100).toFixed(2)}%</div>
+                <div className="metric-subtitle">Annual volatility</div>
               </div>
               <div className="metric-card">
+                <div className="metric-icon">⭐</div>
                 <div className="metric-label">Sharpe Ratio</div>
                 <div className="metric-value">{portfolioData.sharpe_ratio.toFixed(3)}</div>
+                <div className="metric-subtitle">Risk-adjusted return</div>
               </div>
               <div className="metric-card">
+                <div className="metric-icon">β</div>
                 <div className="metric-label">Portfolio Beta</div>
-                <div className="metric-value">{portfolioData.actual_beta}</div>
+                <div className="metric-value">
+                  {portfolioData.actual_beta != null ? Number(portfolioData.actual_beta).toFixed(3) : 'N/A'}
+                </div>
                 <div className="beta-comparison">
-                  Target: {portfolioData.target_beta} 
-                  <span className={Math.abs(portfolioData.actual_beta - portfolioData.target_beta) < 0.1 ? 'success' : 'warning'}>
-                    ({Math.abs(portfolioData.actual_beta - portfolioData.target_beta) < 0.1 ? '✓' : '⚠'})
-                  </span>
+                  Target: {portfolioData.target_beta}
+                  {portfolioData.strategy_used === 'target_return' ? (
+                    <span className="metric-subtitle">(informational only)</span>
+                  ) : (
+                    <>
+                      {portfolioData.actual_beta != null && Math.abs(portfolioData.actual_beta - portfolioData.target_beta) < 0.1 ? (
+                        <span className="success">✓ Δ = {Math.abs(portfolioData.actual_beta - portfolioData.target_beta).toFixed(3)}</span>
+                      ) : portfolioData.actual_beta != null ? (
+                        <span className="warning">⚠ Δ = {Math.abs(portfolioData.actual_beta - portfolioData.target_beta).toFixed(3)}</span>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               </div>
               
               {portfolioData.target_return && (
                 <div className="metric-card">
+                  <div className="metric-icon">🎯</div>
                   <div className="metric-label">Target Return (Annual)</div>
                   <div className="metric-value">{(portfolioData.target_return * 100).toFixed(1)}%</div>
                   <div className="return-comparison">
-                    Achieved: {(portfolioData.expected_return * 100).toFixed(1)}% per year
-                    <span className={portfolioData.target_achieved ? 'success' : 'warning'}>
-                      ({portfolioData.target_achieved ? '✓' : '⚠'})
-                    </span>
+                    Achieved (Expected): {(portfolioData.expected_return * 100).toFixed(2)}%
+                    {portfolioData.target_achieved ? (
+                      <span className="success">
+                        ✓ Δ = {Math.abs(portfolioData.expected_return - portfolioData.target_return).toFixed(2)}%
+                      </span>
+                    ) : (
+                      <>
+                        <span className="warning">❌</span>
+                        <div className="metric-subtitle" style={{color: '#d32f2f', marginTop: '4px'}}>
+                          Closest feasible solution
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -351,9 +447,11 @@ function OptimizedApp() {
 
             <div className="weights-section">
               <h3>💼 Stock Weights & Returns</h3>
+              
+              {/* Desktop/Tablet Grid View */}
               <div className="weights-grid">
                 {Object.entries(portfolioData.weights)
-                  .filter(([, weight]) => weight > 0.001) // Only show stocks with weight > 0%
+                  .filter(([, weight]) => weight > 0.001)
                   .sort(([,a], [,b]) => b - a)
                   .map(([symbol, weight]) => {
                     const stock = portfolioData.stocks.find(s => s.symbol === symbol);
@@ -368,26 +466,51 @@ function OptimizedApp() {
                           <div className="weight-value">{(weight * 100).toFixed(1)}%</div>
                         </div>
                         <div className="weight-details">
-                          <div className="detail-row">
-                            <span className="detail-label">Sector:</span>
-                            <span className="detail-value">{stock?.sector}</span>
-                          </div>
-                          <div className="detail-row">
-                            <span className="detail-label">Beta:</span>
-                            <span className="detail-value">β: {stock?.beta}</span>
-                          </div>
-                          {individualReturn && (
-                            <div className="detail-row">
-                              <span className="detail-label">Expected Return:</span>
-                              <span className="detail-value return-highlight">{(individualReturn * 100).toFixed(1)}%</span>
-                            </div>
-                          )}
+                          <span className="detail-chip">
+                            <span className="chip-label">Return:</span>
+                            <span className="chip-value">{(individualReturn ? individualReturn * 100 : 0).toFixed(1)}%</span>
+                          </span>
+                          <span className="detail-chip">
+                            <span className="chip-label">Beta:</span>
+                            <span className="chip-value">β {stock?.beta?.toFixed(2)}</span>
+                          </span>
+                          <span className="detail-chip">
+                            <span className="chip-label">{stock?.sector}</span>
+                          </span>
                         </div>
-                        <div className="weight-bar">
-                          <div 
-                            className="weight-fill" 
-                            style={{ width: `${weight * 100}%` }}
-                          ></div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Mobile List View */}
+              <div className="holdings-list">
+                {Object.entries(portfolioData.weights)
+                  .filter(([, weight]) => weight > 0.001)
+                  .sort(([,a], [,b]) => b - a)
+                  .map(([symbol, weight]) => {
+                    const stock = portfolioData.stocks.find(s => s.symbol === symbol);
+                    const individualReturn = portfolioData.individual_returns?.[symbol];
+                    return (
+                      <div key={symbol} className="holdings-list-item">
+                        <div className="holdings-list-item-left">
+                          <div className="symbol">{symbol}</div>
+                          <div className="company-name">{stock?.name}</div>
+                        </div>
+                        <div className="holdings-list-item-right">
+                          <div className="weight">{(weight * 100).toFixed(1)}%</div>
+                          <div className="chips">
+                            {individualReturn && (
+                              <span className="detail-chip">
+                                <span className="chip-label">Return:</span>
+                                <span className="chip-value">{(individualReturn * 100).toFixed(1)}%</span>
+                              </span>
+                            )}
+                            <span className="detail-chip">
+                              <span className="chip-label">Beta:</span>
+                              <span className="chip-value">β {stock?.beta?.toFixed(2)}</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     );

@@ -1,2 +1,8 @@
 node_modules
 wsgi.py
+nul
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python

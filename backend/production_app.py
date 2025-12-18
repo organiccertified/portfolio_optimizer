@@ -450,35 +450,72 @@ class PortfolioOptimizer:
             per_stock = 1.0 / len(selected_stocks)
             weights = {stock['symbol']: per_stock for stock in selected_stocks}
         
-        # Calculate final metrics
-        actual_beta = sum(weights[s['symbol']] * s['beta'] for s in selected_stocks if weights.get(s['symbol'], 0) > 0.001)
-        actual_return = sum(weights[s['symbol']] * individual_returns.get(s['symbol'], 0.08) for s in selected_stocks if weights.get(s['symbol'], 0) > 0.001)
+        # Calculate final metrics using actual optimized weights
+        # Expected return = sum(weights * individual_returns) - NEVER force to target
+        actual_beta = sum(weights.get(s['symbol'], 0) * s.get('beta', 1.0) for s in selected_stocks if weights.get(s['symbol'], 0) > 0.001)
+        actual_return = sum(weights.get(s['symbol'], 0) * individual_returns.get(s['symbol'], 0.08) for s in selected_stocks if weights.get(s['symbol'], 0) > 0.001)
+        
+        # Safety check: ensure we have valid values
+        if not selected_stocks or len(selected_stocks) == 0:
+            logger.error("No stocks selected for optimization")
+            return {'error': 'No stocks selected. Please try again.'}
+        
+        if actual_beta == 0 or actual_return == 0:
+            logger.warning(f"Zero values detected: beta={actual_beta}, return={actual_return}")
+            # Use default values if calculation failed
+            if actual_beta == 0:
+                actual_beta = sum(s.get('beta', 1.0) / len(selected_stocks) for s in selected_stocks)
+            if actual_return == 0:
+                actual_return = sum(individual_returns.get(s['symbol'], 0.08) / len(selected_stocks) for s in selected_stocks)
         volatility = random.uniform(0.15, 0.35) * (1 + actual_beta * 0.1)
         sharpe_ratio = (actual_return - self.risk_free_rate) / volatility if volatility > 0 else 0.1
-        target_achieved = target_return is None or abs(actual_return - target_return) < 0.005
         
-        # For target_return strategy, ALWAYS set expected return to target return
-        # This is the whole point of the strategy - user expects to see target return achieved
+        # Consistency checks
+        total_weight = sum(weights.values())
+        if abs(total_weight - 1.0) > 1e-6:
+            logger.warning(f"Weights don't sum to 1.0: {total_weight}")
+            # Normalize weights
+            weights = {k: v / total_weight for k, v in weights.items()}
+            # Recalculate with normalized weights
+            actual_return = sum(weights.get(s['symbol'], 0) * individual_returns.get(s['symbol'], 0.08) for s in selected_stocks if weights.get(s['symbol'], 0) > 0.001)
+            actual_beta = sum(weights.get(s['symbol'], 0) * s.get('beta', 1.0) for s in selected_stocks if weights.get(s['symbol'], 0) > 0.001)
+        
+        # Check for negative weights (shorting not allowed)
+        negative_weights = [k for k, v in weights.items() if v < -1e-6]
+        if negative_weights:
+            logger.warning(f"Negative weights found: {negative_weights}")
+        
+        # Target achieved check with tolerance (0.25% = 0.0025)
+        tolerance = 0.0025  # 0.25% tolerance
+        target_achieved = target_return is None or abs(actual_return - target_return) <= tolerance
+        
+        # Debug logging for target_return strategy
         if strategy == 'target_return' and target_return is not None:
-            # Force expected return to match target return exactly
-            actual_return = target_return
-            target_achieved = True
-        # For other strategies, adjust if very close
-        elif target_return is not None and abs(actual_return - target_return) < 0.005:
-            actual_return = target_return  # Set to exact target for display
+            logger.info(f"Target Return Strategy Debug:")
+            logger.info(f"  target_return_input: {target_return:.4f} ({target_return*100:.2f}%)")
+            logger.info(f"  computed_expected_return: {actual_return:.4f} ({actual_return*100:.2f}%)")
+            logger.info(f"  difference: {abs(actual_return - target_return):.4f} ({abs(actual_return - target_return)*100:.2f}%)")
+            logger.info(f"  tolerance: {tolerance:.4f} ({tolerance*100:.2f}%)")
+            logger.info(f"  target_achieved: {target_achieved}")
+        # Ensure all numeric values are valid
+        actual_beta = float(actual_beta) if actual_beta is not None else 1.0
+        actual_return = float(actual_return) if actual_return is not None else 0.08
+        volatility = float(volatility) if volatility is not None else 0.20
+        sharpe_ratio = float(sharpe_ratio) if sharpe_ratio is not None else 0.1
+        
         result = {
             'weights': weights,
             'stocks': selected_stocks,
             'individual_returns': individual_returns,
-            'target_beta': target_beta,
+            'target_beta': float(target_beta),
             'actual_beta': round(actual_beta, 3),
-            'target_return': target_return,
+            'target_return': float(target_return) if target_return is not None else None,
             'expected_return': round(actual_return, 4),
             'volatility': round(volatility, 4),
             'sharpe_ratio': round(sharpe_ratio, 3),
-            'target_achieved': target_achieved,
+            'target_achieved': bool(target_achieved),
             'optimization_time': round(time.time() - start_time, 3),
-            'strategy_used': strategy,
+            'strategy_used': str(strategy),
             'message': self._generate_optimization_message(len(selected_stocks) if strategy == 'target_return' else num_stocks, strategy, target_return, actual_return, target_achieved)
         }
         optimization_cache[cache_key] = {
@@ -615,15 +652,21 @@ class PortfolioOptimizer:
         results.
         """
         if strategy == 'target_return':
-            base_message = f'Portfolio optimized using Target Return strategy!'
+            base_message = f'Portfolio optimized using Target Return strategy with {num_stocks} stocks!'
+            if target_return is not None:
+                if target_achieved:
+                    return f"{base_message} Target return of {target_return:.1%} achieved (expected: {actual_return:.2%})."
+                else:
+                    return f"{base_message} Target return of {target_return:.1%} not fully achievable. Best achievable: {actual_return:.2%} (closest feasible solution)."
+            return base_message
         else:
             base_message = f'Portfolio optimized with {num_stocks} stocks using {strategy} strategy!'
         
         if target_return is not None:
             if target_achieved:
-                return f"{base_message} Target return of {target_return:.1%} achieved with {actual_return:.1%} actual return."
+                return f"{base_message} Target return of {target_return:.1%} achieved with {actual_return:.2%} expected return."
             else:
-                return f"{base_message} Target return of {target_return:.1%} not fully achievable. Best achievable: {actual_return:.1%}."
+                return f"{base_message} Target return of {target_return:.1%} not fully achievable. Best achievable: {actual_return:.2%}."
         return base_message
 
 # Initialize optimizer
@@ -666,23 +709,56 @@ def optimize_portfolio() -> jsonify:
     """Enhanced portfolio optimization endpoint"""
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
         num_stocks = data.get('num_stocks', ProductionConfig.DEFAULT_STOCKS)
         target_beta = data.get('target_beta', ProductionConfig.DEFAULT_BETA)
         target_return = data.get('target_return')  # Can be None
         strategy = data.get('strategy', 'diversified')
+        
+        # Validate and convert inputs
+        try:
+            num_stocks = int(num_stocks) if num_stocks is not None else ProductionConfig.DEFAULT_STOCKS
+            target_beta = float(target_beta) if target_beta is not None else ProductionConfig.DEFAULT_BETA
+        except (ValueError, TypeError) as e:
+            logger.error(f"Invalid input conversion: {e}")
+            return jsonify({'error': f'Invalid input format: {str(e)}'}), 400
+        
         # Convert target_return from percentage to decimal if provided
         if target_return is not None:
-            if isinstance(target_return, str):
-                target_return = float(target_return.replace('%', '')) / 100
-            elif target_return > 1:
-                target_return = target_return / 100
+            try:
+                if isinstance(target_return, str):
+                    target_return = float(target_return.replace('%', '').strip()) / 100
+                elif isinstance(target_return, (int, float)):
+                    # Check for NaN
+                    if target_return != target_return:  # NaN check
+                        target_return = None
+                    elif target_return > 1:
+                        target_return = float(target_return) / 100
+                    else:
+                        target_return = float(target_return)
+                else:
+                    target_return = None
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Could not convert target_return: {e}, setting to None")
+                target_return = None
+        
+        logger.info(f"Optimization request: num_stocks={num_stocks}, target_beta={target_beta}, target_return={target_return}, strategy={strategy}")
+        
         # Optimize portfolio
         result = optimizer.optimize(num_stocks, target_beta, target_return, strategy)
+        
         if 'error' in result:
+            logger.warning(f"Optimization returned error: {result.get('error')}")
             return jsonify(result), 400
+        
+        logger.info(f"Optimization successful: {len(result.get('stocks', []))} stocks, return={result.get('expected_return', 0):.4f}")
         return jsonify(result)
     except Exception as e:
-        logger.error(f"Optimization error: {str(e)}")
+        logger.error(f"Optimization error: {str(e)}", exc_info=True)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'error': 'Internal server error', 'message': str(e)}), 500
 
 @app.route('/api/clear-cache', methods=['POST'])
