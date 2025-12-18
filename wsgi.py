@@ -7,6 +7,20 @@
 import sys
 import os
 
+# Add virtualenv site-packages to path (if using virtualenv)
+venv_path = '/home/mojon/portfolio_optimizer/venv'
+if os.path.exists(venv_path):
+    # Try to find the Python version automatically
+    lib_path = os.path.join(venv_path, 'lib')
+    if os.path.exists(lib_path):
+        # Look for python3.x directories
+        for item in os.listdir(lib_path):
+            if item.startswith('python'):
+                venv_site_packages = os.path.join(lib_path, item, 'site-packages')
+                if os.path.exists(venv_site_packages):
+                    sys.path.insert(0, venv_site_packages)
+                    break
+
 # Add your project directory to the Python path
 project_home = '/home/mojon/portfolio_optimizer'
 
