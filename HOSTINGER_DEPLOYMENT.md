@@ -10,13 +10,36 @@ This guide will help you deploy the Portfolio Optimizer to Hostinger hosting.
 
 ## 🛠️ Step 1: Prepare Production Build
 
-### **Option A: Use Build Script (Windows)**
+### **Option A: Use Hostinger Deployment Script (Recommended)**
+
+**Windows:**
 ```bash
-# Run the production build script
+# Run the Hostinger deployment script
+deploy_hostinger.bat
+```
+
+**Linux/Mac:**
+```bash
+# Make script executable
+chmod +x deploy_hostinger.sh
+
+# Run the Hostinger deployment script
+./deploy_hostinger.sh
+```
+
+This script will:
+- Build the React application
+- Create the production folder structure
+- Copy all necessary files including `passenger_wsgi.py` and `.htaccess`
+- Prepare everything for upload
+
+### **Option B: Use General Production Build Script**
+```bash
+# Run the production build script (Windows)
 build_production.bat
 ```
 
-### **Option B: Manual Build**
+### **Option C: Manual Build**
 ```bash
 # 1. Install dependencies
 npm install
@@ -33,6 +56,8 @@ mkdir production/build
 cp -r build/* production/build/
 cp backend/production_app.py production/backend/
 cp backend/production_requirements.txt production/backend/
+cp passenger_wsgi.py production/
+cp .htaccess production/
 ```
 
 ## 🌐 Step 2: Hostinger Setup
@@ -74,56 +99,34 @@ cp backend/production_requirements.txt production/backend/
 
 ## ⚙️ Step 4: Configure Web Server
 
-### **4.1 Create .htaccess File**
-Create a `.htaccess` file in your `public_html` folder:
+### **4.1 Upload Configuration Files**
+The deployment scripts will create these files automatically. Upload them to your `public_html` folder:
 
-```apache
-RewriteEngine On
+1. **`.htaccess`** - Apache configuration for URL rewriting
+2. **`passenger_wsgi.py`** - Passenger WSGI configuration for Flask
 
-# Handle React Router
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.html [L]
+These files are already created in your project root and will be copied to the `production` folder when you run the deployment script.
 
-# API routes to Python backend
-RewriteRule ^api/(.*)$ backend/production_app.py/$1 [L,QSA]
-
-# Serve static files
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^(.*)$ $1 [L]
-```
-
-### **4.2 Create WSGI Configuration**
-Create `passenger_wsgi.py` in your `public_html` folder:
-
-```python
-import sys
-import os
-
-# Add the backend directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'backend'))
-
-# Import the Flask app
-from production_app import app as application
-
-if __name__ == "__main__":
-    application.run()
-```
+**Note:** The `.htaccess` file handles React Router routing and API routes. The `passenger_wsgi.py` file is automatically detected by Hostinger's Passenger application server.
 
 ## 🚀 Step 5: Start the Application
 
-### **5.1 Start Python App**
-In the Terminal:
+### **5.1 Automatic Start (Recommended)**
+Hostinger's Passenger WSGI will automatically detect and run your Flask application using the `passenger_wsgi.py` file. No manual start is needed!
+
+The application will be automatically served when:
+- `passenger_wsgi.py` is in your `public_html` folder
+- Python support is enabled in Hostinger control panel
+- Dependencies are installed
+
+### **5.2 Manual Testing (Optional)**
+If you want to test the app manually in Terminal:
 ```bash
 cd public_html
 python backend/production_app.py
 ```
 
-### **5.2 Alternative: Use Gunicorn**
-```bash
-cd public_html
-gunicorn --bind 0.0.0.0:5000 backend.production_app:app
-```
+**Note:** For production, Passenger WSGI handles everything automatically. You don't need to manually start the app.
 
 ## 🔧 Step 6: Configure Domain
 
@@ -224,9 +227,9 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 ### **Updating the App:**
 1. Make changes to your local code
-2. Run `build_production.bat` again
-3. Upload new files to Hostinger
-4. Restart the Python application
+2. Run `deploy_hostinger.bat` (Windows) or `./deploy_hostinger.sh` (Linux/Mac) to rebuild
+3. Upload new files from the `production` folder to Hostinger's `public_html`
+4. Passenger WSGI will automatically reload the application (no manual restart needed)
 
 ### **Monitoring:**
 1. Check application logs regularly

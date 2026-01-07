@@ -13,12 +13,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Set static folder path - handle both relative and absolute paths
-# PythonAnywhere path: /home/mojon/portfolio_optimizer/
+# Hostinger path: typically in public_html or domain root
 static_folder_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'build')
 if not os.path.exists(static_folder_path):
-    # Fallback: try absolute path from project root (PythonAnywhere)
-    static_folder_path = '/home/mojon/portfolio_optimizer/build'
-    if not os.path.exists(static_folder_path):
+    # Fallback: try common Hostinger paths
+    # Hostinger typically uses public_html or domain root
+    possible_paths = [
+        os.path.join(os.path.expanduser('~'), 'domains', 'yourdomain.com', 'public_html', 'build'),
+        os.path.join(os.path.expanduser('~'), 'public_html', 'build'),
+        os.path.join('/home', os.getenv('USER', 'user'), 'public_html', 'build'),
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'build'),
+    ]
+    for path in possible_paths:
+        if os.path.exists(path):
+            static_folder_path = path
+            break
+    else:
         # Try user home directory
         static_folder_path = os.path.join(os.path.expanduser('~'), 'portfolio_optimizer', 'build')
         if not os.path.exists(static_folder_path):

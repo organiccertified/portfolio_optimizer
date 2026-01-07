@@ -79,7 +79,7 @@ After this fix, you should see:
 
 ## Debug Logging
 
-When using target_return strategy, check PythonAnywhere logs for:
+When using target_return strategy, check server logs for:
 ```
 Target Return Strategy Debug:
   target_return_input: 0.2000 (20.00%)

@@ -32,6 +32,8 @@ echo Step 4: Copying production files...
 xcopy /E /I /Y "build\*" "production\build\"
 copy /Y "backend\production_app.py" "production\backend\"
 copy /Y "backend\production_requirements.txt" "production\backend\"
+if exist "passenger_wsgi.py" copy /Y "passenger_wsgi.py" "production\"
+if exist ".htaccess" copy /Y ".htaccess" "production\"
 
 echo.
 echo Step 5: Creating deployment files...
