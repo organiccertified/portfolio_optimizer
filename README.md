@@ -149,6 +149,26 @@ The application uses the following approach:
 - Responsive UI with modern React patterns
 - Caching of S&P 500 stock list
 
+## Deployment
+
+### Hostinger Deployment
+
+**Quick Start:**
+```bash
+# Windows
+deploy_hostinger.bat
+
+# Linux/Mac
+chmod +x deploy_hostinger.sh
+./deploy_hostinger.sh
+```
+
+This creates a `production` folder with all files ready for Hostinger. Upload contents to `public_html`.
+
+**Detailed Instructions:**
+- Quick guide: See `HOSTINGER_QUICK_START.md`
+- Full guide: See `HOSTINGER_DEPLOYMENT.md`
+
 ## Contributing
 
 1. Fork the repository
